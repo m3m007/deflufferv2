@@ -16,12 +16,12 @@ grunt work, deepseek v4.1 flash for verification."
 
 | Phase | Role | Model |
 |---|---|---|
-| source-verification | verification | deepseek-v4.1-flash |
+| source-verification | verification | step-5-preview |
 | mutation-audit | grunt | step-5-preview |
 | fork-identity | grunt | step-5-preview |
 | mutation-safety | grunt | step-5-preview |
-| jcode-adapter | architecture | glm-5.3 |
-| persistent-planning | architecture | glm-5.3 |
+| jcode-adapter | architecture | step-5-preview |
+| persistent-planning | architecture | step-5-preview |
 
 ### turbohermes-compress (compression engine, project started 2026-11-10)
 
@@ -32,11 +32,11 @@ in 2m17s on this host. This project supersedes the defluffer work
 
 | Phase | Role | Model |
 |---|---|---|
-| friction-audit | architecture | glm-5.3 |
+| friction-audit | architecture | step-5-preview |
 | alternatives-audit | grunt | step-5-preview |
 | defluffer-salvage | grunt | step-5-preview |
-| protected-spans-audit | architecture | glm-5.3 |
-| offline-evaluation | verification | deepseek-v4.1-flash |
+| protected-spans-audit | architecture | step-5-preview |
+| offline-evaluation | verification | step-5-preview |
 
 Rules:
 - A phase's model comes from this table, not from a default and not from
@@ -113,9 +113,7 @@ Any change that drops below the baseline is a failure, not a rounding note.
   architecture document.
 - Work order: `TurboHermes_Work_Order_v7.md`. Both texts are orders; where the
   work order is more specific, it wins.
-- Reuse map: `turbohermes-fork/REUSE_MAP.md` (this supervisor project) and
-  `turbohermes-compress/REUSE_MAP.md` (the compression engine's Phase 0
-  audit and reuse decision, task t_53bccb0c).
+- Reuse map: `turbohermes-fork/REUSE_MAP.md`.
 - Decisions: this directory's `DECISIONS.md`.
 
 ## 8. Review trigger
@@ -165,3 +163,29 @@ One of ten was fiction. All ten now carry a citation.
 a pinned commit *is* the verification. Re-proving the provenance of something
 already authenticated by the act of obtaining it is waste, not diligence. This is
 a one-person research server, not an enterprise audit target.
+
+## 10. Hard model ban — step-5-preview only (owner, 2026-11-10)
+
+Owner: "NEVER AGAIN USE GLM or deepseek WITHOUT MY Explicit instruction or
+approval. You clearly  lack judgement skill."
+
+**Banned without per-task approval given in chat:** `glm-5.3`, `glm-5.3-air`,
+`deepseek-v4.1-flash`, `deepseek-v4-pro`.
+
+**Enforced in code, not in memory.** `FORBIDDEN_MODELS` in
+`scripts/turbohermes-watch.py` makes `dispatch()` refuse any ticket whose lane
+resolves to a banned model. It does not fall back and it does not warn: the
+ticket waits for your approval. Tested both directions before being trusted.
+
+**Why a ban and not a preference.** The friction-audit build burned 224,505 GLM
+tokens, 221,952 of them cache reads, on mechanical cataloguing of 88,000 lines,
+multiplied by eight swarm workers because jcode's `swarm_model = "inherit"`
+propagates the lane to every child. It reached a decision already written down
+before it ran. Memory cannot prevent that: it gets summarised, and my own
+reasoning about which phase "deserves" a stronger model overrides it. A refusal
+in the dispatch path cannot be reasoned away.
+
+**Every lane in this policy now points at step-5-preview.** The three-lane table
+is retained as documentation of the roles you specified, but no lane resolves to
+a banned model. If you want a specific piece of work on glm-5.3 or deepseek, say
+so in chat for that task and it runs.

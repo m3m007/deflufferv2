@@ -22,7 +22,18 @@ import subprocess
 import time
 from pathlib import Path
 
-MAX_CONCURRENT = 3  # measured: 8 cores, ~19GB free; two builds ran fine side by side
+# Owner 2026-11-10: "NEVER AGAIN USE GLM or deepseek WITHOUT MY Explicit
+# instruction or approval. You clearly  lack judgement skill"
+#
+# This is a hard ban enforced in code, not a preference held in memory. Memory
+# gets summarised, forgotten, or overridden by my own reasoning about which
+# phase "deserves" a stronger model. The friction-audit burn of 224,505 GLM
+# tokens on mechanical cataloguing is what this prevents. Only step-5-preview
+# runs without a per-task approval given in chat.
+FORBIDDEN_MODELS = {"glm-5.3", "deepseek-v4.1-flash", "glm-5.3-air", "deepseek-v4-pro"}
+DEFAULT_LANE = "step-5-preview"
+
+MAX_CONCURRENT = 2  # measured: 3 builds + swarm children drove load to 7.65 on 8 cores, which timed out the MemOS bridge health check and put it in a restart loop
 
 LOGDIR = Path("/home/hermes/.hermes/logs")
 LOG = LOGDIR / "turbohermes-watch.log"
@@ -169,6 +180,11 @@ def model_for(ticket_id):
 
 def dispatch(ticket_id):
     model, phase = model_for(ticket_id)
+    if model in FORBIDDEN_MODELS:
+        log("REFUSING %s: model %s is banned without explicit owner approval in "
+            "chat. Falling back is not permitted; the ticket waits for approval."
+            % (ticket_id, model))
+        return False
     citation = source_citation(ticket_id)
     if not citation:
         log("REFUSING %s (phase %s): no SOURCE citation. A ticket that cannot "
