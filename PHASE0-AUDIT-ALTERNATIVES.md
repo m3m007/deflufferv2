@@ -49,7 +49,7 @@ logic and every file that would be copied or ported, (6) the cost to port,
 | **humanize** | Python, MIT `Copyright (c) 2026 ccf` | 909-line scanner + a 304-feature StoryScope taxonomy with a human/AI gap table | **No** — prompt + counters | **Partly** — the taxonomy is the best-cited research inventory in the lane | **Reference only** |
 | **humanist** | Python, MIT, **with a CC BY-SA 4.0 carve-out** | 42-rule checker + FP corpus discipline | **No** — checker reports, never edits | **Partly** — the FP-guard methodology is the best engineering in either repo | **Reference only; the vendored catalog is licence-blocked** |
 | **prosaic** | Rust, dual MIT OR Apache-2.0 | 14 crates, 1,401 tests; 2,381-line discourse tracker; 1,509 lines of English grammar | **No — the opposite problem.** It *generates* text and avoids repetition; we *remove* repetition | **No** | **Study only, port nothing** |
-| **nlprule** | Rust MIT OR Apache-2.0, **rule binaries LGPLv2.1** | 3,749 compiled grammar rules / 14 categories; English SRX 77 rules vs friction's 6; `grammar.xml` 1,642 rules + 714 rulegroups; stale since 2022-02-04 | **Yes** — `Rules::correct` rewrites (verified live: `"She was not been here since Monday."` → `"She was not here since Monday."`) | **No, on both axes.** Segmentation: 18/98 golden disagreements (all over-splits on title abbreviations) and 76.6x slower. Grammar: friction has none, but 46% of the rules are typos/collocations and **0 measured hits** on nominalization, deference and inflated vocabulary | **Do not adopt. Rule data: LGPLv2.1 (+ a GPL portion), do not copy** |
+| **nlprule** | Rust MIT OR Apache-2.0, **rule binaries LGPLv2.1** | 3,749 compiled grammar rules / 14 categories; English SRX 77 rules vs friction's 6; `grammar.xml` 4,366 rules (3 standalone + 4,363 in 714 rulegroups); stale since 2022-02-04 | **Yes** — `Rules::correct` rewrites (verified live: `"She was not been here since Monday."` → `"She was not here since Monday."`) | **No, on both axes.** Segmentation: 18/98 golden disagreements (all over-splits on title abbreviations) and 76.6x slower. Grammar: friction has none, but 46% of the rules are typos/collocations and **0 measured hits** on nominalization, deference and inflated vocabulary | **Do not adopt. Rule data: LGPLv2.1 (+ a GPL portion), do not copy** |
 
 ---
 
@@ -331,8 +331,12 @@ Measured from the compiled `en_rules.bin`: **3,749 grammar rules across 14
 categories** — GRAMMAR 1,450, TYPOS 798, CONFUSED_WORDS 723, COLLOCATIONS 209,
 REDUNDANCY 133, STYLE 97, PUNCTUATION 102, TYPOGRAPHY 61, PLAIN_ENGLISH 81,
 CASING 35, NONSTANDARD_PHRASES 25, COMPOUNDING 19, SEMANTICS 11, WIKIPEDIA 5.
-(The XML source has 1,642 `<rule>` elements plus 714 `<rulegroup>` elements;
-the compile step flattens rulegroups, hence the larger compiled count.)
+(The XML source holds **4,366 `<rule>` elements** — 3 standalone rules plus
+4,363 nested inside 714 `<rulegroup>` elements — and the compile step flattens
+the groups into individual rules, hence the larger compiled count.
+**[coordinator-verified: `grep -o` over `enzip/en/grammar.xml` gives 4,366
+`<rule` and 714 `<rulegroup`; 1,642 is the count of `<rule ` *with attributes*
+and undercounts the nested ones.]**)
 
 `Rules::correct` **is a rewriter** — `rules.rs:139-152` calls `suggest` then
 `apply_suggestions` splices `replacements()[0]` in. Verified live:
@@ -463,11 +467,21 @@ Friction's gap list survives this audit almost intact:
   `/home/hermes/projects/turbohermes-compress` no longer exists; the project was
   renamed to `deflufferv2/` mid-audit (git history intact, HEAD `6f9a5f7`,
   remote `m3m007/deflufferv2`). Both lanes found this independently and used
-  `/home/hermes/projects/deflufferv2/REUSE_MAP.md`. **REUSE_MAP.md itself still
-  contains stale `turbohermes-compress` paths and should be corrected.**
+  `/home/hermes/projects/deflufferv2/REUSE_MAP.md`. **Corrected in `407bb27`
+  (REUSE_MAP: correct the stale turbohermes-compress paths); the two remaining
+  mentions are deliberate historical record and are marked as such.**
 - **Vale aggregate token count is heuristic-dependent.** The lane's 3,433 and my
   independent 3,415 differ by classification on ~18 tokens. Per-file counts
   agree. Use per-file counts.
 - **Three lanes reported completion before writing their deliverable.** eagle,
   dove and giraffe each sent a summary with no file on disk and were asked to
   write it. Recorded so the swarm pattern is visible, not silent.
+- **The nlprule `grammar.xml` rule count in the lane report was wrong.** The
+  lane reported 1,642 `<rule>` elements plus 714 `<rulegroup>` elements. The
+  true counts, measured by `grep -o` over `enzip/en/grammar.xml`, are **4,366
+  `<rule>` elements** of which 3 are standalone and **4,363 are nested inside
+  714 `<rulegroup>` elements**. 1,642 is the count of `<rule ` *with
+  attributes*, which undercounts the nested rules. The 3,749 compiled-rule
+  figure and every measurement taken from the compiled `en_rules.bin` are
+  unaffected; only the source-XML side note was wrong. Corrected above.
+  **[coordinator-verified]**
