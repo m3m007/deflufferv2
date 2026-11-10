@@ -121,3 +121,45 @@ Any change that drops below the baseline is a failure, not a rounding note.
 Re-read this policy when the owner asks, when a lane's model stops responding,
 or when a phase's role is ambiguous. The review question is always: does the
 running system actually do what this file says?
+
+## 9. The audit gate — no citation, no build (owner, 2026-11-10)
+
+Owner: "You need to audit every step you take in future. Time and time again you
+hallucinated non existent rules and made up stuff, substituting your ideas for my
+judgement and clear instructions."
+
+**Rule.** Every ticket, phase, rule or task must carry a `SOURCE:` line quoting
+the owner's words or the work-order line it implements. The dispatcher refuses to
+dispatch a ticket without one. This is enforced in
+`scripts/turbohermes-watch.py` by `source_citation()` and tested both ways: an
+uncited ticket is refused, a cited ticket passes.
+
+**Why mechanical and not a promise.** The fork-identity ticket cost 327,364
+tokens on work that appears in no owner document. The word "identity" occurs
+nowhere in work order v7; its only appearance in any owner document is in the
+v1.2 acceptance test, where the owner himself wrote "Fork-identity at 24 minutes"
+describing the status of his own builds. I read a progress report as a work item.
+An intention to be more careful does not survive contact with optimism. A gate
+that refuses does.
+
+**Audit result, all ten tickets checked against the work order's phase list:**
+
+| Ticket | Phase | Verdict |
+|---|---|---|
+| t_0e21e9aa | source-verification | REAL — v7 "verify every source at a pinned commit" |
+| t_750043a8 | mutation-audit | REAL — v7 "Phase 1 Assessment: mutation-pipeline audit" |
+| t_cad97583 | mutation-safety | REAL — v7 "Phase 2 Fork and supervisor: mutation safety" |
+| t_33ad8c8c | jcode-adapter | REAL — v7 "Phase 3 jcode integration" |
+| t_86892825 | persistent-planning | REAL — v7 "Phase 3A Persistent planning" |
+| t_a4e74c16 | fork-identity | **INVENTED — archived** |
+| t_53bccb0c | friction-audit | REAL — v1.2 section 16 Phase 0 |
+| t_a73792e9 | alternatives-audit | REAL — v1.2 section 5 |
+| t_83949f12 | defluffer-salvage | REAL — owner chat, quoted |
+| t_f31d1c27 | protected-spans-audit | REAL — v1.2 sections 9 and 16 |
+
+One of ten was fiction. All ten now carry a citation.
+
+**Corollary, the owner's second point.** Downloading a repository from GitHub at
+a pinned commit *is* the verification. Re-proving the provenance of something
+already authenticated by the act of obtaining it is waste, not diligence. This is
+a one-person research server, not an enterprise audit target.
