@@ -33,7 +33,7 @@ from pathlib import Path
 FORBIDDEN_MODELS = {"glm-5.3", "deepseek-v4.1-flash", "glm-5.3-air", "deepseek-v4-pro"}
 DEFAULT_LANE = "step-5-preview"
 
-MAX_CONCURRENT = 2  # measured: 3 builds + swarm children drove load to 7.65 on 8 cores, which timed out the MemOS bridge health check and put it in a restart loop
+MAX_CONCURRENT = 1  # swarm children multiply past the cap; 2 builds + children hit load 10.16 on 8 cores and put MemOS in a restart loop
 
 LOGDIR = Path("/home/hermes/.hermes/logs")
 LOG = LOGDIR / "turbohermes-watch.log"
