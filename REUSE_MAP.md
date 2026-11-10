@@ -3,10 +3,11 @@
 Task `t_53bccb0c` (compress phase: friction-audit). Written 2026-11-10.
 **Path correction (2026-11-10, during task `t_a73792e9`):** the repo was
 renamed from `turbohermes-compress` to `deflufferv2` mid-audit. Git history is
-intact (remote `m3m007/deflufferv2`). The stale paths below are kept as written
-where they are historical record, but the live path is
-`/home/hermes/projects/deflufferv2`.
-Repo audited: `/home/hermes/projects/turbohermes-compress` (fork of
+intact (remote `m3m007/deflufferv2`). Line 9 below is kept as the historical
+record of where the audit happened, but the live path is
+`/home/hermes/projects/deflufferv2`; every later reference to the old path has
+been corrected.
+Repo audited: `turbohermes-compress` (renamed to `deflufferv2`; fork of
 `zerosize-dev/friction` Release 0.6.20, commit `5e52d8a`; local HEAD `7338326`
 is 5 commits past it, doc-only: 1,259 insertions of top-level markdown, zero
 crate files — verified with `git diff 5e52d8a..HEAD --stat`).
