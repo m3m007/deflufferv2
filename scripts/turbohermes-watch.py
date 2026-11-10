@@ -33,7 +33,7 @@ from pathlib import Path
 FORBIDDEN_MODELS = {"glm-5.3", "deepseek-v4.1-flash", "glm-5.3-air", "deepseek-v4-pro"}
 DEFAULT_LANE = "step-5-preview"
 
-MAX_CONCURRENT = 1  # swarm children multiply past the cap; 2 builds + children hit load 10.16 on 8 cores and put MemOS in a restart loop
+MAX_CONCURRENT = 2  # owner 2026-11-10: raised to test the claim that 2 builds endanger MemOS. That claim was inference, not measurement.
 
 LOGDIR = Path("/home/hermes/.hermes/logs")
 LOG = LOGDIR / "turbohermes-watch.log"
@@ -82,7 +82,7 @@ def jcode_pids():
     rc, out = sh("pgrep -f -- '--provider-profile litellm'")
     if rc != 0 or not out.strip():
         return []
-    pids = []
+    all_jcode = set()
     for pid in out.strip().splitlines():
         pid = pid.strip()
         if not pid:
@@ -93,8 +93,23 @@ def jcode_pids():
         except OSError:
             continue
         if comm.startswith("jcode"):
-            pids.append(pid)
-    return pids
+            all_jcode.add(pid)
+    # Count TOP-LEVEL builds only. A build spawns swarm children whose command
+    # line is identical, so counting every jcode process let one build with one
+    # child fill a cap of 2 and starve every other project. The owner's
+    # instruction was to raise the limit and measure; the limit was unreachable
+    # because the counter was wrong, the same defect class as the pgrep
+    # self-match that froze the first watchdog.
+    top_level = []
+    for pid in all_jcode:
+        try:
+            with open("/proc/%s/stat" % pid) as fh:
+                ppid = fh.read().split(") ", 1)[1].split()[1]
+        except (OSError, IndexError):
+            continue
+        if ppid not in all_jcode:
+            top_level.append(pid)
+    return sorted(top_level)
 
 
 def ready_tickets():
@@ -105,7 +120,23 @@ def ready_tickets():
                  cwd=KANBAN_DIR)
     if rc != 0:
         return []
-    return _ticket_ids(out)
+    ids = _ticket_ids(out)
+    # Project order is explicit, not whatever kanban lists first. The v1.2
+    # compression engine is the current work order; the v7 fork work is older.
+    # Taking ids[0] meant a reclaimed fork ticket could jump ahead of the
+    # compression phase the owner was waiting on, which read as dispatching the
+    # wrong ticket.
+    compress = [t for t in ids if "compress phase:" in _title(t)]
+    other = [t for t in ids if t not in compress]
+    return compress + other
+
+
+def _title(ticket_id):
+    rc, out = sh("hermes kanban show %s" % ticket_id, cwd=KANBAN_DIR)
+    for line in out.splitlines():
+        if "phase:" in line:
+            return line.split("phase:", 1)[1].strip()
+    return ""
 
 
 def source_citation(ticket_id):
@@ -178,6 +209,17 @@ def model_for(ticket_id):
     return model, phase
 
 
+def _shell_escape(text):
+    """Escape a value for embedding inside a double-quoted shell string.
+
+    The SOURCE citations contain double quotes, because they quote the owner's
+    words. Substituted raw, the first embedded quote closed the shell string and
+    the rest of the prompt was parsed as shell syntax, which is why three
+    dispatches died with "syntax error near unexpected token" and produced no
+    build at all.
+    """
+    return text.replace("\\", "\\\\").replace('"', '\\"')
+
 def dispatch(ticket_id):
     model, phase = model_for(ticket_id)
     if model in FORBIDDEN_MODELS:
@@ -203,19 +245,29 @@ def dispatch(ticket_id):
     cmd = (
         "source %s 2>/dev/null; export JCODE_PROVIDER_LITELLM_API_KEY=\"%s\"; "
         "jcode --provider-profile litellm --model %s run "
-        "AUTHORITY (quote it in your report): %s. "
+        "\"AUTHORITY (quote it in your report): %s. "
         "Run: hermes kanban show %s --body, read that body, and execute it "
         "exactly. Work order v7 is the authority: reuse before write, and name "
         "every upstream file you copy or port from. "
-        "FAN-OUT: this run is a capability test. Where the work splits into "
-        "independent parts, use the swarm tool to run them in parallel rather "
-        "than doing them serially; report which parts you fanned out and which "
-        "you kept serial, and why. "
+        "FAN-OUT (documented swarm syntax, verified against jcode source): the "
+        "swarm tool takes a required 'action' field. To fan out, either call "
+        "swarm with action=launch, which runs your own todo list as one agent "
+        "per lane, or call swarm with action=spawn plus a required 'label' and "
+        "a 'prompt' describing that worker's lane. Do not invent other action "
+        "names. If the work does not split into independent lanes, say so and "
+        "stay serial rather than spawning for its own sake. "
         "Report only what you ran and observed.\""
-        % (ENV, key, model, citation, ticket_id)
+        % (ENV, key, model, _shell_escape(citation), ticket_id)
     )
     with open(logf, "a") as lf:
-        subprocess.Popen(["bash", "-lc", cmd], cwd=str(KANBAN_DIR),
+        # Isolation (owner 2026-11-10): "Jcode should absolutely not affect
+        # memos as memos is only used for Hermes." A build worker must never be
+        # able to starve a Hermes service. nice -n 19 means the MemOS bridge
+        # always wins a scheduling contest, so a saturated machine cannot time
+        # out its health check. This is cheaper and more reversible than
+        # cgroups and touches nothing in the plugin.
+        subprocess.Popen(["nice", "-n", "19", "bash", "-lc", cmd],
+                         cwd=str(KANBAN_DIR),
                          stdout=lf, stderr=subprocess.STDOUT,
                          start_new_session=True)
     log("DISPATCHED %s (phase %s) to jcode on model %s, log %s"
