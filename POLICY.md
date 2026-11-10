@@ -113,7 +113,9 @@ Any change that drops below the baseline is a failure, not a rounding note.
   architecture document.
 - Work order: `TurboHermes_Work_Order_v7.md`. Both texts are orders; where the
   work order is more specific, it wins.
-- Reuse map: `turbohermes-fork/REUSE_MAP.md`.
+- Reuse map: `turbohermes-fork/REUSE_MAP.md` (this supervisor project) and
+  `turbohermes-compress/REUSE_MAP.md` (the compression engine's Phase 0
+  audit and reuse decision, task t_53bccb0c).
 - Decisions: this directory's `DECISIONS.md`.
 
 ## 8. Review trigger
