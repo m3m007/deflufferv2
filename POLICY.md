@@ -189,3 +189,31 @@ in the dispatch path cannot be reasoned away.
 is retained as documentation of the roles you specified, but no lane resolves to
 a banned model. If you want a specific piece of work on glm-5.3 or deepseek, say
 so in chat for that task and it runs.
+
+## 11. Two different audits: identity is not one (owner, 2026-11-10)
+
+Owner: "Do you understand that if we install anything proven from GitHub we will
+not audit its identity more than a quick cursory check? When working in depth
+with a repo, developer models should be able to uncover unsafe code."
+
+**Identity: cursory only.** A repository pulled from GitHub at a pinned commit is
+accepted as what it claims to be. Licence, last commit date, star count, and that
+the pinned commit exists. Nothing further. The fork-identity ticket cost 327,364
+tokens re-proving the provenance of something already authenticated by the act of
+downloading it, and the word "identity" appeared in no owner document. That work
+is archived and must not be recreated.
+
+**Safety: uncovered by the developer model during deep work, not by a separate
+upfront audit.** The model that reads the code in depth is the audit. This is
+cheaper than a gate, and it is a gate nobody maintains, which is worse than no
+gate. The consequence is a dispatch-prompt obligation, not a pipeline stage: every
+developer build is instructed to flag unsafe code it encounters, with file and
+line, in its report. Unsafe means: `unsafe` blocks, raw pointer dereference,
+command execution built from string concatenation, network calls to
+non-allowlisted hosts, secret material in source, and any dependency that
+transitively pulls a crate outside the approved set.
+
+**The division of labour.** Cursory identity check at selection time. Safety
+findings surface in the developer's own report at work time. Neither is a
+blocking gate; both are reported. A finding stops the work, it does not stop the
+dispatch.

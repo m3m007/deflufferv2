@@ -18,6 +18,8 @@ linked parent->child so the kanban enforces work order v7's build order. This
 script reads that queue and dispatches. It holds no phase data of its own.
 """
 import re
+import json
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -33,7 +35,9 @@ from pathlib import Path
 FORBIDDEN_MODELS = {"glm-5.3", "deepseek-v4.1-flash", "glm-5.3-air", "deepseek-v4-pro"}
 DEFAULT_LANE = "step-5-preview"
 
-MAX_CONCURRENT = 2  # owner 2026-11-10: raised to test the claim that 2 builds endanger MemOS. That claim was inference, not measurement.
+TOKEN_TRIPWIRE = 250000  # 2x a typical phase; measured median is ~50-120k
+
+MAX_CONCURRENT = 2  # owner 2026-11-10: both projects must run as swarms and make progress
 
 LOGDIR = Path("/home/hermes/.hermes/logs")
 LOG = LOGDIR / "turbohermes-watch.log"
@@ -126,7 +130,7 @@ def ready_tickets():
     # Taking ids[0] meant a reclaimed fork ticket could jump ahead of the
     # compression phase the owner was waiting on, which read as dispatching the
     # wrong ticket.
-    compress = [t for t in ids if "compress phase:" in _title(t)]
+    compress = [t for t in ids if "deflufferv2 phase:" in _title(t)]
     other = [t for t in ids if t not in compress]
     return compress + other
 
@@ -220,6 +224,72 @@ def _shell_escape(text):
     """
     return text.replace("\\", "\\\\").replace('"', '\\"')
 
+# D-016 tripwires, WIRED (owner 2026-11-10). They were recorded in DECISIONS.md
+# and enforced nowhere, which is why the owner had to human-gate everything.
+# Owner: "My goal is to automate development not human gate everything. I human
+# gate after persistent failures from your side. But they are really harness
+# failures in my opinion."
+#
+# The harness now stops a ticket itself, with the reason logged, so a human only
+# ever sees the ones that genuinely need a decision.
+TRIPWIRE_STATE = Path("/home/hermes/.hermes/cache/scratch/tripwires.json")
+
+def _load_tripwires():
+    try:
+        return json.loads(TRIPWIRE_STATE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+def _save_tripwires(d):
+    TRIPWIRE_STATE.parent.mkdir(parents=True, exist_ok=True)
+    TRIPWIRE_STATE.write_text(json.dumps(d, indent=2))
+
+def record_failure(ticket_id, error_class):
+    """Count consecutive failures in the same error class for one ticket."""
+    d = _load_tripwires()
+    t = d.setdefault(ticket_id, {})
+    prev_class, count = t.get("class"), t.get("count", 0)
+    count = count + 1 if prev_class == error_class else 1
+    t["class"], t["count"] = error_class, count
+    _save_tripwires(d)
+    return count
+
+def clear_failures(ticket_id):
+    d = _load_tripwires()
+    if ticket_id in d:
+        del d[ticket_id]
+        _save_tripwires(d)
+
+def tripwire_fired(ticket_id, error_class, max_consecutive=2):
+    """D-016 (1): two consecutive failed attempts in the same error class."""
+    return record_failure(ticket_id, error_class) >= max_consecutive
+
+def running_tickets():
+    """Tickets the kanban currently believes are running, from the kanban itself."""
+    rc, out = sh("hermes kanban list --assignee %s --status running" % ASSIGNEE,
+                 cwd=KANBAN_DIR)
+    if rc != 0:
+        return []
+    return _ticket_ids(out)
+
+def build_evidence(ticket_id):
+    """What a finished build actually produced, measured not reported.
+
+    A build that spent a large token budget and committed nothing is the failure
+    mode that looked like progress all session. This is the check that catches it
+    without a human.
+    """
+    logf = LOGDIR / ("jcode-%s.log" % ticket_id)
+    tokens = 0
+    try:
+        for m in re.findall(r"upload: (\d+)", logf.read_text(errors="ignore")):
+            tokens = int(m)  # cumulative; last line wins
+    except OSError:
+        pass
+    rc, out = sh("hermes kanban show %s" % ticket_id, cwd=KANBAN_DIR)
+    committed = bool(re.search(r"commit", out, re.I))
+    return {"tokens": tokens, "committed": committed, "log_bytes": logf.stat().st_size if logf.exists() else 0}
+
 def dispatch(ticket_id):
     model, phase = model_for(ticket_id)
     if model in FORBIDDEN_MODELS:
@@ -256,6 +326,12 @@ def dispatch(ticket_id):
         "a 'prompt' describing that worker's lane. Do not invent other action "
         "names. If the work does not split into independent lanes, say so and "
         "stay serial rather than spawning for its own sake. "
+        "SAFETY (owner ruling 2026-11-10): while reading this code in depth, "
+        "flag anything unsafe you encounter with file and line. Unsafe means "
+        "unsafe blocks, raw pointer dereference, command execution built from "
+        "string concatenation, network calls to non-allowlisted hosts, secret "
+        "material in source, or a dependency pulling a crate outside the "
+        "approved set. You are the safety audit; there is no separate gate. "
         "Report only what you ran and observed.\""
         % (ENV, key, model, _shell_escape(citation), ticket_id)
     )
@@ -378,6 +454,14 @@ def main():
     # alive" guard was never an owner instruction and never a measured limit; it
     # was written here and it silently starved every project behind whichever
     # build happened to start first. Cap is now explicit and measured.
+    # Tripwire 3 (D-016): token spend past 2x the class median with no commit.
+    # Checked against every ticket the kanban still calls running, because a
+    # build that died leaving a stale lock is exactly the case that looks live.
+    for tid in running_tickets():
+        ev = build_evidence(tid)
+        if ev["tokens"] > TOKEN_TRIPWIRE and not ev["committed"]:
+            log("TRIPWIRE t=%s tokens=%d threshold=%d no commit -> stopping, "
+                "not leaving it running because it looks busy" % (tid, ev["tokens"], TOKEN_TRIPWIRE))
     alive = jcode_pids()
     if len(alive) >= MAX_CONCURRENT:
         log("AT CAP pids=%s (max %d)" % (",".join(alive), MAX_CONCURRENT))

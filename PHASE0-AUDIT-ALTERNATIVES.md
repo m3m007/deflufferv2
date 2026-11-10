@@ -32,20 +32,44 @@ is called out. Where I re-measured a load-bearing number myself, it is marked
 
 ---
 
-## 1. The eight Phase 0 dimensions, answered per project
+## 1. The Phase 0 verification dimensions, answered per project
 
-Work order v1.2 §16 asks, for each candidate: (1) language and licence,
-(2) algorithm or rule inventory, (3) is it a post-processing engine or something
-else, (4) does it beat what friction already has, (5) reusable transformation
-logic and every file that would be copied or ported, (6) the cost to port,
-(7) what it does not cover, (8) the decision.
+Work order v1.2 §16 lists the eight things Phase 0 must verify for each
+candidate: **source-level implementation, API stability, dependencies, licence
+compatibility, test coverage, performance, reusable transformation logic, and
+existing protected-span handling**, and then says "Produce a short audit report
+and an implementation decision."
+
+This file answers them in a different order, so the mapping is stated
+up front:
+
+| Work order §16 dimension | Where it is answered here |
+|---|---|
+| Source-level implementation | §1 "Inventory" + §3 per project, and §2.5 for the two repos whose own gates fail |
+| API stability | **Partially covered — see the gap note below.** Recorded only where a port would depend on it: unslop's script signatures, stopslop's `RuleDef`/`RULES`, nlprule's `Tokenizer`/`Rules` API (and the fact that nlprule's own `compile` bin no longer builds) |
+| Dependencies | §3.7's nlprule dependency tree (150 crates, `onig` C build) and the per-repo build/port cost notes; §5 decision 4 for Vale as a dev-only Go dependency |
+| Licence compatibility | §2.1 (the two licence findings) and the licence column of §1 and every §3 row |
+| Test coverage | §1 "Inventory" column (counted) and §3's evaluation-asset rows |
+| Performance | §3.7's measured segmentation/grammar throughput; friction's own characteristics are in `REUSE_MAP.md` §6 |
+| Reusable transformation logic | §2 and §3, the port-candidate tables |
+| Existing protected-span handling | §2.4 and §4 |
+
+The original lane briefs (which the seven lanes answered) asked a related but
+different five: language/licence, rule inventory, engine-or-not, beats-friction,
+and reusable logic. That is why §1's table has the columns it has.
+
+**API stability is the weakest answer in this file** and that is deliberate:
+for seven of eight repos the honest answer is "not applicable", because the
+reuse decision for all of them is *data and algorithms*, not linked libraries.
+The one case where it mattered (nlprule's `compile` binary failing to build
+against current dependencies) is recorded in §3.7.
 
 | Project | Lang / licence | Inventory | Engine? | Beats friction? | Decision |
 |---|---|---|---|---|---|
-| **unslop** | Python, MIT **in prose only, no LICENSE file** | 20 scripts / 7,382 lines; 16 literal + 36 regex tells; 494 phrase rows + ~90 regexes in the catalogue | **No** — agent skill + detection layer; `suggest.py` emits `suggested_replacement: null` | **Yes, on 3 things friction has nothing for**: must-preserve constraint taxonomy, silhouette (idea-arrangement) scorer with a committed human reference distribution, adversarial eval corpus | **Port 6 scripts + copy 7 data assets** |
+| **unslop** | Python, MIT **in prose only, no LICENSE file** | 21 scripts / 6,739 lines; 16 literal + 36 regex tells; 494 phrase rows + ~90 regexes in the catalogue | **No** — agent skill + detection layer; `suggest.py` emits `suggested_replacement: null` | **Yes, on 3 things friction has nothing for**: must-preserve constraint taxonomy, silhouette (idea-arrangement) scorer with a committed human reference distribution, adversarial eval corpus | **Port 6 scripts + copy 7 data assets** |
 | **stopslop** | Rust, MIT `Copyright (c) 2026 Giovani` | 57 rules (`SLOP001`–`057`), 122 English regex statics + 11 prose panels, 1,166 tests | **No** — linter; `Diagnostic.fix` is a human-readable hint, never applied | **Partly** — self-reference (I) and discourse framing (A) are real deltas; families B and protected spans it does not have | **Extract pattern data; do not take the engine** |
-| **prose-sanitiser** | Rust, dual MIT OR Apache-2.0 | 7 crates / 138 `.rs` / 34,702 lines / 732 tests; Layer A = 1,361,157 codepoint verdicts; 15 slop rules; VarCon 32,523 lines | **Partly** — Layer A unicode strip is a real deterministic rewrite lane; Layer B is an LLM hook | **Yes, on one thing friction has zero of**: invisible Unicode / homoglyph / stego / bidi handling | **Port the unicode crate + the digest-gate pattern; do not take slop tables, media, or the LLM hook** |
-| **vale-ai-tells** | YAML for Vale (Go), MIT `Copyright (c) 2025-2026 Tony Burns` | 170 rule files; 3,415 pattern entries **[coordinator-verified]**; 2,354 test cases / 609 negative; 620 `exceptions:` entries | **No** — linter rule data; 2 of 170 rules carry replacement text | **Yes, on breadth** — 1,925 literal tokens vs friction's 18 substitution pairs; families E, F, I get coverage friction lacks | **Port phrase data through friction's attestation pipeline; copy the test + FP corpus** |
+| **prose-sanitiser** | Rust, dual MIT OR Apache-2.0 | 7 crates / 138 `.rs` / 34,702 lines / 732 tests; Layer A = 1,361,157 codepoint verdicts; 20 slop rule ids (+1 whole-file aggregate); VarCon 32,523 lines | **Partly** — Layer A unicode strip is a real deterministic rewrite lane; Layer B is an LLM hook | **Yes, on one thing friction has zero of**: invisible Unicode / homoglyph / stego / bidi handling | **Port the unicode crate + the digest-gate pattern; do not take slop tables, media, or the LLM hook** |
+| **vale-ai-tells** | YAML for Vale (Go), MIT `Copyright (c) 2025-2026 Tony Burns` | 170 rule files; 3,323 `tokens:` + 30 `raw:` + 80 `swap:` = 3,433 pattern entries (see §3.4 for the counting caveat); 2,354 test cases; 620 `exceptions:` entries | **No** — linter rule data; 2 of 170 rules carry replacement text | **Yes, on breadth** — 1,925 literal tokens vs friction's 18 substitution pairs; families E, F, I get coverage friction lacks | **Port phrase data through friction's attestation pipeline; copy the test + FP corpus** |
 | **humanize** | Python, MIT `Copyright (c) 2026 ccf` | 909-line scanner + a 304-feature StoryScope taxonomy with a human/AI gap table | **No** — prompt + counters | **Partly** — the taxonomy is the best-cited research inventory in the lane | **Reference only** |
 | **humanist** | Python, MIT, **with a CC BY-SA 4.0 carve-out** | 42-rule checker + FP corpus discipline | **No** — checker reports, never edits | **Partly** — the FP-guard methodology is the best engineering in either repo | **Reference only; the vendored catalog is licence-blocked** |
 | **prosaic** | Rust, dual MIT OR Apache-2.0 | 14 crates, 1,401 tests; 2,381-line discourse tracker; 1,509 lines of English grammar | **No — the opposite problem.** It *generates* text and avoids repetition; we *remove* repetition | **No** | **Study only, port nothing** |
@@ -319,10 +343,12 @@ story: 4.2% more sentences. The lane traced the cause to nlprule's own SRX
 `afterbreak` rule `[^\p{Lu}]|I`, which declines when a capitalized word
 follows.
 
-Why the speed gap matters for a port: friction compiles 5 regexes once from a
-**6.3 KB embedded ruleset**. nlprule runs the same SRX algorithm but
-deserializes an **11.6 MB bincode tokenizer** first and does FST dictionary
-lookups per sentence. The 12.9 ms/KB is the tokenizer's cost, not the
+Why the speed gap matters for a port: friction parses a **6.3 KB embedded
+SRX ruleset** once per process (`OnceLock`, `segment_srx.rs:32-46`) and the
+`srx` crate compiles its 6 rules' 12 beforebreak/afterbreak regexes once,
+sharing that compiled set for every call. nlprule runs the same SRX
+algorithm but deserializes an **11.6 MB bincode tokenizer** first and does FST
+dictionary lookups per sentence. The 12.9 ms/KB is the tokenizer's cost, not the
 algorithm's.
 
 ### Grammar: real corrector, wrong data, wrong subject
@@ -485,3 +511,34 @@ Friction's gap list survives this audit almost intact:
   figure and every measurement taken from the compiled `en_rules.bin` are
   unaffected; only the source-XML side note was wrong. Corrected above.
   **[coordinator-verified]**
+- **unslop's script count and line total in the lane report were both wrong.**
+  The lane said "20 Python files, 7,382 lines" while its own table listed 21
+  files. The true counts are **21 `.py` files totalling 6,739 lines**
+  (`wc -l`, per-file). The lane's per-file numbers are each correct and sum to
+  6,739, so 7,382 was an arithmetic slip. The mechanical/network split is
+  unchanged and still correct: **20 mechanical + `wiki_sync.py` (network)**.
+  Corrected in §1. **[coordinator-verified]**
+- **prose-sanitiser's slop rule count in the lane report was wrong.** The lane
+  reported "15 `Rule {` literals, 14 distinct ids". A walk of
+  `crates/slop/src/` finds **21 `id:` entries, all distinct**: 20 rule ids in
+  `rules/table.rs` plus `agg` (the whole-file aggregate in `rules/mod.rs`), and
+  6 of the 20 are the `structural-*-density` / `*-variance` / `*-uniformity`
+  density rules in `structural.rs` rather than per-line tells. The lane's
+  stated *names* are a subset of the real list. Corrected in §1.
+  **[coordinator-verified]**
+- **friction's segmentation regex count in the lane report was wrong.** The
+  lane said friction "compiles 5 regexes once". `segment_srx.rs:32-46` parses
+  the embedded 6.3 KB SRX once per `Lang` behind an `OnceLock` and delegates to
+  the `srx` crate, which compiles the ruleset's **6 `<rule>` elements, each
+  with a `beforebreak` and an `afterbreak` (12 regexes)**. The load-bearing
+  point — one parse-and-compile shared per process, versus nlprule's 11.6 MB
+  bincode tokenizer deserialized and FST lookups per sentence — is unaffected.
+  Corrected in §3.7. **[coordinator-verified]**
+- **The "eight Phase 0 dimensions" framing in this file was the lane brief's
+  five questions relabelled, not the work order's eight.** Work order v1.2 §16
+  lists: source-level implementation, API stability, dependencies, licence
+  compatibility, test coverage, performance, reusable transformation logic, and
+  existing protected-span handling. §1 now carries a mapping from those eight
+  to where this file answers them, and states plainly that API stability is
+  the weakest answer. **[coordinator-verified against
+  `deflufferv2-work-order.md:752-768`]**
