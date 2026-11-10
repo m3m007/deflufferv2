@@ -1,6 +1,11 @@
 # REUSE_MAP.md — friction Phase 0 audit and reuse decision
 
 Task `t_53bccb0c` (compress phase: friction-audit). Written 2026-11-10.
+**Path correction (2026-11-10, during task `t_a73792e9`):** the repo was
+renamed from `turbohermes-compress` to `deflufferv2` mid-audit. Git history is
+intact (remote `m3m007/deflufferv2`). The stale paths below are kept as written
+where they are historical record, but the live path is
+`/home/hermes/projects/deflufferv2`.
 Repo audited: `/home/hermes/projects/turbohermes-compress` (fork of
 `zerosize-dev/friction` Release 0.6.20, commit `5e52d8a`; local HEAD `7338326`
 is 5 commits past it, doc-only: 1,259 insertions of top-level markdown, zero
@@ -283,9 +288,9 @@ Rationale, from the audit:
   to abandon it: they slot in as new inventory entries, transducers, and
   gated deletion spans, exactly as T10-T13 and the register transducers
   were added upstream.
-- Cost to undo stays low: the fork already exists (m3m007/turbohermes-compress
-  at Release 0.6.20), the licence is permissive, and the fork's history so
-  far is doc-only.
+- Cost to undo stays low: the fork already exists (m3m007/deflufferv2,
+  formerly m3m007/turbohermes-compress, at Release 0.6.20), the licence is
+  permissive, and the fork's history so far is doc-only.
 
 ## 9. REUSE_MAP — every upstream file the fork builds on
 
@@ -312,8 +317,9 @@ extension for numbers/paths/URLs/identifiers; families B, E, F, H, I and the
 non-formulaic parts of A and J as new gated operations/transducers/pack
 entries; the work order's CLI subcommands, profiles, token measurement, and
 provider abstraction (Phase 1+). The alternatives-audit (child task
-t_a73792e9) owns the external reuse candidates (stopslop rules, llmstrip
-phrases, defluffer corpus) and will record them in this same file.
+t_a73792e9) owns the external reuse candidates and records them in
+`PHASE0-AUDIT-ALTERNATIVES.md` in this directory; the eight lane reports it
+consolidates live in `/home/hermes/.hermes/kanban/workspaces/t_a73792e9/`.
 
 ## 10. Corrections recorded during the audit
 
